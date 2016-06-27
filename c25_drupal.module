@@ -1,0 +1,104 @@
+<?php
+
+/**
+ * @file
+ * This module needs to alter the existing Drupal "Site Information" form
+ */
+
+
+/**
+ * Implements hook_menu().
+ */
+function c25_drupal_menu() {
+    $items = array();
+    $items['page_json/%/%'] = array(
+      'title' => 'Node Json',
+      'description' => 'Display node json.',
+      'page callback' => '_c25_drupal_node_json',
+      'page arguments' => array(2),
+      'access callback' => '_c25_drupal_user_access',
+      'access arguments' => array(1)
+    );
+  return $items;
+}
+
+/**
+ * Respond to a custom access callback.
+ *
+ * This function is check API key in URL is valid or not.
+ *
+ * @param $API_key
+ *   Representing a apikey
+ * @return
+ *  boolean
+ */
+function _c25_drupal_user_access($API_key) {
+  $site_API_key = variable_get('siteapikey', NULL);
+  if ($site_API_key === $API_key) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Respond to a custom page callback.
+ *
+ * This function get nid and check for node type "page" and return JSON.
+ *
+ * @param $nid
+ *   Node id from URL
+ * @return
+ *   Return JSON representation of a given node with the content type "page"
+ */
+function _c25_drupal_node_json($nid) {
+  $cid = 'c25_drupal_' . $nid;
+  $node_data = '';
+  if ($cache = cache_get($cid)) {
+    $node_data = $cache->data;
+  }
+  else {
+    $node_types = array('page');
+    $node_data = node_load($nid);
+    $type = $node_data->type;
+    if (in_array($type, $node_types)) {
+      cache_set($cid, $node_data, 'cache', REQUEST_TIME + (60*60));
+    }
+  }
+  drupal_json_output($node_data);
+  exit;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function c25_drupal_form_alter(&$form, &$form_state) {
+  if ($form['#form_id'] == 'system_site_information_settings') {
+    $API_key = variable_get('siteapikey', 'No API Key yet');
+    if (!empty($API_key) && $API_key !== 'No API Key yet') {
+      $form['actions']['submit']['#value'] = 'Update Configuration';
+    }
+    $form['api'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('API'),
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+    );
+    $form['api']['siteapikey'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Site API Key'),
+      '#required' => FALSE,
+      '#description' => t('API Key'),
+      '#default_value' => empty($API_key)?'No API Key yet':$API_key,
+    );
+    $form['#submit'][] = 'c25_drupal_api_key_submit';
+  }
+}
+
+/**
+ * Process c25_drupal_form_alter form submissions.
+ */
+function c25_drupal_api_key_submit($form, &$form_state) {
+  if (!empty($form_state['values']['siteapikey']) && $form_state['values']['siteapikey'] != 'No API Key yet') {
+  drupal_set_message(t('Site API Key "!apikey" has been saved.', array('!apikey' => $form_state['values']['siteapikey'])));
+  }
+}

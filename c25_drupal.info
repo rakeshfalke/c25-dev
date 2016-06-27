@@ -1,0 +1,5 @@
+name = C25 drupal
+description = Alter the existing Drupal "Site Information" form.
+package = Custom
+version = VERSION
+core = 7.x
